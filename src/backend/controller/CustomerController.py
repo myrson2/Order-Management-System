@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-
 from backend.dependencies import get_customer_service, API_BASE_URL
 from backend.schemas.Users import Customer, MerchantResponse
 from backend.service.customer_service import CustomerService
@@ -24,35 +23,57 @@ def get_customers(service: CustomerService = Depends(get_customer_service)):
     """
     return service.get_all()
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
-def create_customer(customer: Customer, service: CustomerService = Depends(get_customer_service)):
+@router.get('/stores', status_code=status.HTTP_200_OK, response_model=list[dict])
+def get_stores(service: CustomerService = Depends(get_customer_service)):
     """
     Description / Purpose:
-        HTTP POST endpoint to register and save a new customer.
+        HTTP GET endpoint to retrieve a list of all registered merchant store profiles.
 
     Args / Parameters:
-        customer (Customer): Validated Pydantic Customer payload from HTTP request body.
         service (CustomerService): Injected CustomerService dependency.
 
     Returns:
-        None.
+        list[dict]: List of merchant store summary dictionaries.
 
     Constraints / Notes:
-        Validates request body against Customer schema and appends serialized dict to storage.
+        Queries merchant store records using the API base URL.
     """
-    print(customer.model_dump())
-    service.add(customer.to_dict())
-
-@router.get('/stores', status_code=status.HTTP_200_OK, response_model=list[dict])
-def get_stores(service: CustomerService = Depends(get_customer_service)):
     return service.get_stores(API_BASE_URL)
 
 @router.get('/stores/{store_name}', status_code=status.HTTP_200_OK, response_model=MerchantResponse)
 def get_merchant_by_store(store_name: str, service: CustomerService = Depends(get_customer_service)):
+    """
+    Description / Purpose:
+        HTTP GET endpoint to retrieve merchant profile details for a given store name.
+
+    Args / Parameters:
+        store_name (str): The unique store name to search for.
+        service (CustomerService): Injected CustomerService dependency.
+
+    Returns:
+        MerchantResponse: Matching merchant profile schema.
+
+    Constraints / Notes:
+        Raises HTTP 404 if the store name does not exist.
+    """
     return service.get_merchant(store_name)
 
 @router.get('/stores/{store_name}/all_products', status_code=status.HTTP_200_OK, response_model=list[dict])
 def get_store_products(store_name: str, service: CustomerService = Depends(get_customer_service)):
+    """
+    Description / Purpose:
+        HTTP GET endpoint to retrieve all inventory products associated with a specific store.
+
+    Args / Parameters:
+        store_name (str): The unique store name to look up.
+        service (CustomerService): Injected CustomerService dependency.
+
+    Returns:
+        list[dict]: List of product inventory dictionaries belonging to the store.
+
+    Constraints / Notes:
+        Returns empty list if the store exists but has no registered products.
+    """
     return service.get_store_products(store_name)
 
 # @router.get('/stores/{store_name/product/{product_id}', status_code=status.HTTP_200_OK, response_model=MerchantResponse)

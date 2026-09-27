@@ -5,7 +5,7 @@ from backend.interface import merchant_interface
 from backend.interface import customer_interface
 from backend.interface.handle_user import UserInterface
 from backend.interface.merchant_interface import MerchantInterface
-from backend.schemas.Users import MerchantResponse
+from backend.schemas.Users import MerchantResponse, CustomerResponse
 
 load_dotenv()
 
@@ -80,7 +80,16 @@ def main_interface() -> None:
 
             match choice:
                 case "1": # Login 
-                    current_user = user_interface.user_authentication()
+                    while current_user is None:
+                        current_user = user_interface.user_authentication()
+                        if current_user is not None:
+                            break
+
+                        is_continue = input('Try again? [Y/N]: ').strip().upper()
+                        if is_continue == "Y":
+                            continue
+                        elif is_continue == "N":
+                            break
                 case "2": # Register 
                     user_interface.account_registration()
                 case "3":
@@ -94,7 +103,7 @@ def main_interface() -> None:
 
             if isinstance(current_user, MerchantResponse):
                 merchant_interface.merchant_interface(current_user)
-            else:
+            elif isinstance(current_user, CustomerResponse):
                 customer_interface.customer_interface(current_user)
 
             current_user = None

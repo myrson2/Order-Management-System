@@ -10,6 +10,9 @@ class Merchant(UserCreate):
     store_name: str = Field(..., min_length=1, max_length=50)
     tax_id: UUID = Field(default_factory=uuid4)
 
+class MerchantCreate(Merchant):
+    pass
+
 class MerchantResponse(UserResponse):
     user_type: Literal[EnumType.MERCHANT] = EnumType.MERCHANT
     store_name: str = Field(..., min_length=1, max_length=50)

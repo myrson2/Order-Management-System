@@ -26,28 +26,6 @@ def get_users(
     """
     return service.get_all()
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
-def create_merchant(
-        merchant: Merchant,
-        service: MerchantService = Depends(get_merchant_service)
-):
-    """
-    Description / Purpose:
-        HTTP POST endpoint to register and persist a new merchant account.
-
-    Args / Parameters:
-        merchant (Merchant): Validated Merchant Pydantic schema from request body.
-        service (MerchantService): Injected MerchantService singleton dependency.
-
-    Returns:
-        None.
-
-    Constraints / Notes:
-        Appends serialized record to memory and synchronously writes to merchant.json.
-    """
-    print(merchant.model_dump())
-    service.add(merchant.to_dict())
-
 @router.post("/{merchant_id}/products", status_code=status.HTTP_201_CREATED, response_model=ProductResponse)
 def create_a_product(
         merchant_id: str,

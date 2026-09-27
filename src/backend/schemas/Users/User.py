@@ -127,7 +127,6 @@ class User(BaseModel):
         """
         self.active_status = ActiveStatus.OFFLINE
 
-
 class UserCreate(User):
     password: str = Field(..., min_length=8, max_length=100)
 
@@ -163,7 +162,59 @@ class UserCreate(User):
 
 class UserLogin(BaseModel):
     email: EmailStr
+
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        """
+        Description / Purpose:
+            Validates that the provided email address uses a valid @gmail.com domain.
+
+        Args / Parameters:
+            value (str): The email address input string.
+
+        Returns:
+            str: The validated email address string.
+
+        Constraints / Notes:
+            Raises ValueError if the email string does not end with '@gmail.com'.
+        """
+        if value.endswith('@gmail.com'):
+            return value
+        else:
+            raise ValueError('Email address must end with @gmail.com')
+
     password: str = Field(..., min_length=8, max_length=100)
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: str) -> str:
+        """
+        Description / Purpose:
+            Enforces strong password complexity requirements.
+
+        Args / Parameters:
+            value (str): The raw password string.
+
+        Returns:
+            str: The validated password string.
+
+        Constraints / Notes:
+            Must contain at least 1 uppercase letter, 1 lowercase letter, 1 digit, and 1 special character.
+        """
+        if not any(char.isupper() for char in value):
+            raise ValueError("Password must contain an uppercase letter")
+
+        if not any(char.islower() for char in value):
+            raise ValueError("Password must contain a lowercase letter")
+
+        if not any(char.isdigit() for char in value):
+            raise ValueError("Password must contain a number")
+
+        if not any(not char.isalnum() for char in value):
+            raise ValueError("Password must contain a special character")
+
+        return value
 
     def to_dict(self) -> dict:
         """
@@ -181,45 +232,9 @@ class UserLogin(BaseModel):
         """
         return self.model_dump(mode="json")
 
-class UserResponse(BaseModel):
-    id: UUID = Field(default_factory=uuid4)
-    first_name: str = Field(max_length=100)
-    last_name: str = Field(max_length=100)
-    email: EmailStr
-    phone: str = Field(max_length=11)
-    user_type: EnumType
-    active_status: ActiveStatus
-    created_at: datetime = Field(default_factory=datetime.now)
-
-    @classmethod
-    def from_dict(cls, data: dict) -> "UserResponse":
-        """
-        Description / Purpose:
-            Instantiates a UserResponse DTO instance from a dictionary payload.
-
-        Args / Parameters:
-            data (dict): Dictionary containing serialized user attributes.
-
-        Returns:
-            UserResponse: Initialized response model instance.
-
-        Constraints / Notes:
-            Unpacks keys as keyword arguments; raises ValidationError if required fields are missing.
-        """
-        return cls(**data)
-
-    def to_dict(self) -> dict:
-        """
-        Description / Purpose:
-            Serializes UserResponse model into a JSON-compatible dictionary.
-
-        Args / Parameters:
-            None.
-
-        Returns:
-            dict: JSON-safe dictionary containing public user attributes.
-
-        Constraints / Notes:
-            Serializes UUID and datetime objects into string representations.
-        """
-        return self.model_dump(mode="json")
+class UserResponse(User):
+    """
+    Public response schema for authenticated user entities.
+    Inherits all non-sensitive identity and status attributes from User.
+    """
+    pass

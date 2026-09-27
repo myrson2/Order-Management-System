@@ -1,5 +1,7 @@
 import httpx
-from backend.schemas.Users import Customer, CustomerResponse, Merchant, MerchantResponse
+from backend.schemas.Users import CustomerResponse, MerchantResponse
+from backend.schemas.Users.Customer import CustomerCreate
+from backend.schemas.Users.Merchant import MerchantCreate
 from backend.schemas.Users.User import UserLogin, UserResponse
 from pydantic import ValidationError
 from backend.schemas.Users.User import EnumType
@@ -55,20 +57,29 @@ class UserInterface:
                     return MerchantResponse(**user_dict)
                 return CustomerResponse(**user_dict)
             elif response.status_code in (401, 404):
-                print("\n[LOGIN FAILED] Invalid email or password.")
+                try:
+                    error_detail = response.json().get("detail", "Invalid email or password.")
+                except Exception:
+                    error_detail = "Invalid email or password."
+                print(f"\n[LOGIN FAILED] {error_detail}")
                 return None
             else:
                 print(f"\n[API ERROR {response.status_code}]: {response.text}")
                 return None
 
         except ValidationError as e:
-            print(f"\n{e}")
+            for error in e.errors():
+                field_name = error['loc'][0]
+                error_message = error['msg'].replace("Value error, ", "")
+                print(f"\n[ERROR] {field_name}: {error_message}")
             return None
+
         except httpx.RequestError:
             print("\n[API ERROR] Could not connect to server. Ensure FastAPI is running on http://127.0.0.1:8001")
             return None
 
-    def account_registration(self):
+    @staticmethod
+    def account_registration():
         """
         Description / Purpose:
             Interactive CLI registration prompt collecting user details and submitting payloads to API backend.
@@ -95,13 +106,13 @@ class UserInterface:
                     email = input("Email: ").strip()
                     phone_num = input("Phone Number: ").strip()
                     pwd = input("Password (min 8 chars): ").strip()
-                    u_type = input("User Type: (Customer/Merchant)").strip().lower()
+                    u_type = input("User Type (Customer/Merchant): ").strip().lower()
 
                     match u_type:
                         case "merchant":
                             merchant_store_name = input("Merchant Store Name: ").strip()
 
-                            data = Merchant(
+                            data = MerchantCreate(
                                 first_name=first_name,
                                 last_name=last_name,
                                 email=email,
@@ -109,16 +120,16 @@ class UserInterface:
                                 password=pwd,
                                 store_name=merchant_store_name
                             )
-                            response = httpx.post(f"{self.merchant_url}/", json=data.to_dict(), timeout=5.0)
+                            response = httpx.post("http://127.0.0.1:8001/api/v1/auth/register/merchant", json=data.to_dict(), timeout=5.0)
                         case "customer":
-                            data = Customer(
+                            data = CustomerCreate(
                                 first_name=first_name,
                                 last_name=last_name,
                                 email=email,
                                 phone=phone_num,
                                 password=pwd
                             )
-                            response = httpx.post(f"{self.customer_url}/", json=data.to_dict(), timeout=5.0)
+                            response = httpx.post(f"http://127.0.0.1:8001/api/v1/auth/register/customer", json=data.to_dict(), timeout=5.0)
                         case _:
                             raise ValueError(f"\n[ERROR]: User type ({u_type}) is not valid.")
 
@@ -133,8 +144,6 @@ class UserInterface:
 
             if data is None:
                 raise ValueError("\n[ERROR] No data provided.")
-
-            # Send HTTP POST to API Controller
 
             if response is None:
                 raise ValueError("\n[ERROR] No response provided.")
