@@ -1,4 +1,6 @@
 from datetime import datetime
+from typing import Self
+
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from uuid import uuid4, UUID
 from enum import Enum
@@ -16,6 +18,7 @@ class User(BaseModel):
     first_name: str = Field(max_length=100)
     last_name: str = Field(max_length=100)
     email: EmailStr
+    user_type: EnumType
     phone: str = Field(max_length=11)
     created_at: datetime = Field(default_factory=datetime.now)
     active_status: ActiveStatus = ActiveStatus.OFFLINE
@@ -63,7 +66,7 @@ class User(BaseModel):
             raise ValueError('Phone number must start with 09 and be 11 digits long')
 
     @classmethod
-    def from_dict(cls, data: dict) -> "User":
+    def from_dict(cls, data: dict) -> Self:
         """
         Description / Purpose:
             Instantiates a User model from a dictionary payload.

@@ -395,7 +395,7 @@ def logout(customer: CustomerInterface) -> bool:
                               json=customer.current_customer.model_dump(mode='json'))
         print(f"\n[LOGOUT] Logging out {customer.current_customer.first_name} {customer.current_customer.last_name}...")
 
-        if response.status_code == 200:
+        if response.status_code == 202:
             print(
                 f"\n[LOGOUT] Successfully logged out {customer.current_customer.first_name} {customer.current_customer.last_name}.")
             return True

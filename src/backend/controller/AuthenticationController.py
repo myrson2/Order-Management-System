@@ -48,7 +48,7 @@ def customer_registration(customer: CustomerCreate, service: CustomerService = D
     service.add(user)
     return CustomerResponse(**user)
 
-@router.post("/login", status_code=status.HTTP_200_OK, response_model=UserResponse)
+@router.post("/login", status_code=status.HTTP_200_OK, response_model=CustomerResponse | MerchantResponse)
 def get_login_in(user: UserLogin, service: AuthenticationService = Depends(get_auth_service)):
     """
     Description / Purpose:
@@ -71,7 +71,7 @@ def get_login_in(user: UserLogin, service: AuthenticationService = Depends(get_a
             detail="User not found.")
     return account
 
-@router.post("/logout")
+@router.post("/logout", status_code=status.HTTP_202_ACCEPTED)
 def get_logout(user: UserResponse, service: AuthenticationService = Depends(get_auth_service)):
     """
     Description / Purpose:

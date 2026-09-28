@@ -73,3 +73,5 @@ class CustomerService(UserService):
         except httpx.RequestError as e:
             print(e)
 
+    def update(self, user_data):
+        pass

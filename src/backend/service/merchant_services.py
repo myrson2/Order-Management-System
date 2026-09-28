@@ -2,6 +2,8 @@ import httpx
 
 from backend.repository.repositories import ProductRepository
 from backend.schemas.Product import ProductCreate, ProductResponse, ProductUpdate
+from backend.schemas.Users import MerchantResponse, Customer
+from backend.schemas.Users.Merchant import MerchantUpdate
 from backend.service.user_service import UserService
 
 class MerchantService(UserService):
@@ -136,8 +138,6 @@ class MerchantService(UserService):
                 'status': f'{response.status_code}',
             }
         else:
-            deleted_product = ProductResponse(**response.json())
-
             for index, products in enumerate(self.product_cache):
                 if products.get('merchant_id') == str(merchant_id):
                     products = self.product_cache.pop(index)
@@ -198,4 +198,18 @@ class MerchantService(UserService):
                 product.update(update_fields)
                 self.save_product_cache()
                 return ProductResponse(**product)
+        return None
+
+    def update(self, user_data: MerchantUpdate) -> MerchantResponse | None:
+        data = user_data.model_dump(exclude_none=True, mode="json")
+
+        if not data:
+            return MerchantResponse(**data)
+
+        for merchant in self.cache:
+            if merchant.get('id') == str(data.get('id')):
+                merchant.update(data)
+                self.save_cache()
+                return MerchantResponse(**merchant)
+
         return None

@@ -1,14 +1,14 @@
 from typing import TypeVar
-from backend.schemas.Users import Customer, Merchant, User
+from backend.schemas.Users import Customer, Merchant
 from backend.schemas.Users.Customer import CustomerResponse
 from backend.schemas.Users.Merchant import MerchantResponse
-from backend.schemas.Users.User import UserLogin, UserResponse, EnumType
+from backend.schemas.Users.User import UserLogin, UserResponse, EnumType, ActiveStatus
 from backend.service.customer_service import CustomerService
 from backend.service.merchant_services import MerchantService
 
-T = TypeVar("T", Customer, Merchant)
+UserT = TypeVar("UserT", Customer, Merchant)
 
-def _find_user_in_repo(repo: list[dict], email: str, password: str, model_class: type[T]) -> User | None:
+def _find_user_in_repo(repo: list[dict], email: str, password: str, model_class: type[UserT]) -> UserT | None:
     """
     Description / Purpose:
         Searches an in-memory repository cache list for matching email and password,
@@ -78,14 +78,12 @@ class AuthenticationService:
         customer = _find_user_in_repo(self.customer_service.cache, email, password, Customer)
         if customer is not None:
             customer.online()
-            self.customer_service.update(customer.to_dict())
             return CustomerResponse(**customer.model_dump())
 
         # Check merchant
         merchant = _find_user_in_repo(self.merchant_service.cache, email, password, Merchant)
         if merchant is not None:
             merchant.online()
-            self.merchant_service.update(merchant.to_dict())
             return MerchantResponse(**merchant.model_dump())
 
         return None
@@ -105,25 +103,24 @@ class AuthenticationService:
         Constraints / Notes:
             Validates user_type against EnumType explicitly. Returns False if user ID is missing.
         """
-        user_id_str = str(user_res.id)
+        # 1. Map each user_type to the responsible service
+        service_map = {
+            EnumType.MERCHANT: self.merchant_service,
+            EnumType.CUSTOMER: self.customer_service,
+        }
 
-        if user_res.user_type == EnumType.MERCHANT:
-            raw_data = self.merchant_service.get_user_by_id(user_id_str)
-            if not raw_data:
-                return False
-            merchant = Merchant.from_dict(raw_data)
-            merchant.offline()
-            self.merchant_service.update(merchant.to_dict())
-            return True
+        # 2. Pick the target service in one clean line
+        service = service_map.get(user_res.user_type)
+        if not service:
+            return False
 
-        elif user_res.user_type == EnumType.CUSTOMER:
-            raw_data = self.customer_service.get_user_by_id(user_id_str)
-            if not raw_data:
-                return False
-            customer = Customer.from_dict(raw_data)
-            customer.offline()
-            self.customer_service.update(customer.to_dict())
-            return True
+        # 3. Perform the logout logic ONCE for ANY user type!
+        raw_data = service.get_user_by_id(str(user_res.id))
+        if not raw_data:
+            return False
 
-        return False
+        # 4. Update status and persist cache
+        raw_data["active_status"] = ActiveStatus.OFFLINE.value
+        service.save_cache()
+        return True
 

@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from backend.dependencies import get_merchant_service, get_base_url
 from backend.schemas.Product import ProductCreate, ProductResponse, ProductUpdate
 from backend.schemas.Users import Merchant
+from backend.schemas.Users.Merchant import MerchantUpdate
 from backend.service.merchant_services import MerchantService
 
 router = APIRouter(prefix=f"{get_base_url}/merchant", tags=["Merchant"])
@@ -168,3 +169,10 @@ def get_merchant_products(
         service: MerchantService = Depends(get_merchant_service)
 ) -> list[ProductResponse]:
     return service.get_merchant_product(merchant_id)
+
+@router.patch("/{merchant_id}", status_code=status.HTTP_200_OK)
+def edit_merchant_account(merchant_id: str, payload: MerchantUpdate, service: MerchantService = Depends(get_merchant_service)):
+    update_data = service.update(payload)
+    if not update_data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found")
+    return update_data

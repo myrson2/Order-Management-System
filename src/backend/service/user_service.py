@@ -1,5 +1,6 @@
+from abc import abstractmethod, ABC
 
-class UserService:
+class UserService(ABC):
     """Base business logic and caching service for user entities."""
 
     def __init__(self, repositories) -> None:
@@ -108,25 +109,9 @@ class UserService:
         self.cache.append(user_data)
         self.save_cache()
 
-    def update(self, user_data: dict) -> None:
-        """
-        Description / Purpose:
-            Finds an existing entity record in cache by its ID, updates it, and persists to storage.
-
-        Args / Parameters:
-            user_data (dict): Serialized entity dictionary containing updated values and 'id' key.
-
-        Returns:
-            None.
-
-        Constraints / Notes:
-            Stops iteration upon finding the matching ID and invokes save_cache().
-        """
-        for i, c in enumerate(self.cache):
-            if str(c.get("id")) == str(user_data.get('id')):
-                self.cache[i] = user_data
-                self.save_cache()
-                break
+    @abstractmethod
+    def update(self, user_data):
+        pass
 
 
 

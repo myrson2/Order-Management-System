@@ -1,28 +1,15 @@
 [
     {
         "id": "760c184f-1dc0-4c7b-b8dc-2853dbf5528f",
-        "first_name": "Daryll",
+        "first_name": "Dars",
         "last_name": "Lanic",
         "email": "daryll@gmail.com",
+        "user_type": "merchant",
         "phone": "09064495279",
         "created_at": "2026-09-05T00:58:54.400260",
         "active_status": "online",
         "password": "Lanic@123",
-        "user_type": "merchant",
-        "store_name": "LanicGadgets",
+        "store_name": "LanicCorp",
         "tax_id": "9e0112c8-bd95-4cb3-a652-582e1d29483b"
-    },
-    {
-        "id": "0064742f-8ebc-4f40-876e-c3f210dcff1e",
-        "first_name": "Myrson",
-        "last_name": "Beros",
-        "email": "myrson@gmail.com",
-        "phone": "09064495279",
-        "created_at": "2026-09-07T00:48:18.874272",
-        "active_status": "offline",
-        "password": "Myrson@123",
-        "user_type": "merchant",
-        "store_name": "MyrsonStore",
-        "tax_id": "422d62d3-f769-45e1-b843-224e2597f55c"
     }
 ]
