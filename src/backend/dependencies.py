@@ -2,7 +2,10 @@ import json
 import os
 from pathlib import Path
 
+from fastapi import HTTPException, status
+
 from backend.repository.repositories import CustomerRepository, MerchantRepository, ProductRepository, CartRepository, OrderRepository
+from backend.schemas.Users.Merchant import MerchantResponse
 from backend.service import OrderService
 from backend.service.authentication_service import AuthenticationService
 from backend.service.customer_service import CustomerService
@@ -52,6 +55,36 @@ customer_service = CustomerService(customer_repo)
 merchant_service = MerchantService(merchant_repo, product_repo)
 
 authentication_service = AuthenticationService(customer_service, merchant_service)
+
+_active_merchant_id: str | None = None
+
+def set_current_merchant_id(merchant_id: str | None) -> None:
+    global _active_merchant_id
+    _active_merchant_id = str(merchant_id) if merchant_id is not None else None
+
+def clear_current_merchant_id() -> None:
+    global _active_merchant_id
+    _active_merchant_id = None
+
+def get_current_merchant() -> MerchantResponse:
+    global _active_merchant_id
+
+    if _active_merchant_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No active merchant session."
+        )
+
+    merchant_data = merchant_service.get_user_by_id(_active_merchant_id)
+    if merchant_data is None:
+        clear_current_merchant_id()
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Active merchant session not found."
+        )
+
+    return MerchantResponse(**merchant_data)
+
 
 def get_auth_service() -> AuthenticationService:
     """

@@ -149,7 +149,6 @@ def edit_profile_flow(merchant: MerchantInterface) -> None:
     change_store_name = input("Edit Store Name: ").strip()
 
     patch_data = MerchantUpdate(
-        id=merchant.current_merchant.id,
         first_name=f_name,
         last_name=l_name,
         store_name=change_store_name,
@@ -191,7 +190,7 @@ def handle_settings(merchant: MerchantInterface) -> bool:
                                           json=merchant.current_merchant.model_dump(mode='json'))
                     print(f"\n[LOGOUT] Logging out {merchant.current_merchant.first_name} {merchant.current_merchant.last_name}...")
 
-                    if response.status_code == 200:
+                    if response.status_code == 202:
                         print(f"\n[LOGOUT] Successfully logged out {merchant.current_merchant.first_name} {merchant.current_merchant.last_name}.")
                         return True
                     else:

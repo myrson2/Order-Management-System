@@ -17,7 +17,7 @@ class User(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     first_name: str = Field(max_length=100)
     last_name: str = Field(max_length=100)
-    email: EmailStr
+    email: EmailStr 
     user_type: EnumType
     phone: str = Field(max_length=11)
     created_at: datetime = Field(default_factory=datetime.now)

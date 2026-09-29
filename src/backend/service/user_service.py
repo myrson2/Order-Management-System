@@ -1,4 +1,6 @@
 from abc import abstractmethod, ABC
+from src.backend.schemas.Users.Merchant import MerchantUpdate
+from src.backend.schemas.Users.Customer import CustomerUpdate
 
 class UserService(ABC):
     """Base business logic and caching service for user entities."""
@@ -110,7 +112,7 @@ class UserService(ABC):
         self.save_cache()
 
     @abstractmethod
-    def update(self, user_data):
+    def update(self, merchant_id: str, user_data: MerchantUpdate | CustomerUpdate) -> dict | None:
         pass
 
 

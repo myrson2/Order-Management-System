@@ -3,6 +3,7 @@ import httpx
 from backend.repository.repositories import ProductRepository
 from backend.schemas.Product import ProductCreate, ProductResponse, ProductUpdate
 from backend.schemas.Users import MerchantResponse, Customer
+from backend.schemas.Users.Customer import CustomerUpdate
 from backend.schemas.Users.Merchant import MerchantUpdate
 from backend.service.user_service import UserService
 
@@ -200,16 +201,31 @@ class MerchantService(UserService):
                 return ProductResponse(**product)
         return None
 
-    def update(self, user_data: MerchantUpdate) -> MerchantResponse | None:
+    def update(
+        self,
+        merchant_id: str,
+        user_data: MerchantUpdate | CustomerUpdate,
+    ) -> dict | None:
+        """Update a merchant profile and persist the changed cache record.
+
+        Args:
+            merchant_id: ID of the merchant to update.
+            user_data: Profile update payload; customer payloads are not accepted.
+
+        Returns:
+            Public merchant data as a JSON-ready dictionary, or None if not found
+            or the payload is for a customer.
+        """
+        if not isinstance(user_data, MerchantUpdate):
+            return None
+
+        merchant = self.get_user_by_id(str(merchant_id))
+        if merchant is None:
+            return None
+
         data = user_data.model_dump(exclude_none=True, mode="json")
+        if data:
+            merchant.update(data)
+            self.save_cache()
 
-        if not data:
-            return MerchantResponse(**data)
-
-        for merchant in self.cache:
-            if merchant.get('id') == str(data.get('id')):
-                merchant.update(data)
-                self.save_cache()
-                return MerchantResponse(**merchant)
-
-        return None
+        return MerchantResponse(**merchant).model_dump(mode="json")

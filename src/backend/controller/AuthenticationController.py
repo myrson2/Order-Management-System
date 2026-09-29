@@ -1,8 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from backend.dependencies import AUTH_SERVICE_URL, get_auth_service, get_customer_service, get_merchant_service
+from backend.dependencies import (
+    AUTH_SERVICE_URL,
+    clear_current_merchant_id,
+    get_auth_service,
+    get_customer_service,
+    get_merchant_service,
+    set_current_merchant_id,
+)
 from backend.schemas.Users.Customer import CustomerCreate, CustomerResponse
 from backend.schemas.Users.Merchant import MerchantCreate, MerchantResponse
-from backend.schemas.Users.User import UserLogin, UserResponse
+from backend.schemas.Users.User import EnumType, UserLogin, UserResponse
 from backend.service import MerchantService, CustomerService
 
 from backend.service.authentication_service import AuthenticationService
@@ -69,6 +76,10 @@ def get_login_in(user: UserLogin, service: AuthenticationService = Depends(get_a
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found.")
+
+    if getattr(account, "user_type", None) == EnumType.MERCHANT:
+        set_current_merchant_id(str(account.id))
+
     return account
 
 @router.post("/logout", status_code=status.HTTP_202_ACCEPTED)
@@ -90,4 +101,8 @@ def get_logout(user: UserResponse, service: AuthenticationService = Depends(get_
     success = service.logout(user)
     if not success:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Logout failed")
+
+    if getattr(user, "user_type", None) == EnumType.MERCHANT:
+        clear_current_merchant_id()
+
     return {"message": "Successfully logged out"}
