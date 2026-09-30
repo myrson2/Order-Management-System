@@ -1,172 +1,199 @@
-# 📦 Order Management System (Backend)
+# Order Management System
 
-An educational backend application built with **FastAPI**, **Pydantic v2**, and **Python 3.14+**. 
+A learning-focused backend application for managing customers, merchants, products, cart items, and orders with FastAPI and Pydantic v2.
 
-This project serves as a hands-on learning environment for mastering modern Python web backend development, data validation with Pydantic, clean layered architecture, and HTTP client-server interactions.
-
----
-
-## 🎯 Project Purpose & Background
-
-The primary goal of this project is to learn and demonstrate core backend development concepts using the modern Python ecosystem:
-
-- **FastAPI Framework**: Defining RESTful API controllers, route handlers, and dependency injection.
-- **Pydantic v2 Schemas**: Utilizing type validation, custom field validators, schema mapping (`to_dict()`, `from_dict()`), and JSON mode serialization (`model_dump(mode='json')`).
-- **Layered Software Architecture**: Separating concerns into **Repository** (data access & JSON storage), **Service** (business logic & caching), **Controller** (HTTP routing & API validation), and **Schemas** (data validation models).
-- **Client-Server Decoupling**: Building a terminal-based CLI interface (`app_interface.py`) that acts as an independent HTTP client. `httpx` sends requests over the network (`http://127.0.0.1:8000/api/v1/customer`), and the **FastAPI web server** automatically routes and validates those network requests.
-- **Multithreaded Execution**: Running the Uvicorn web server in a background thread while concurrently launching an interactive CLI menu in `main.py`.
-
-> 📘 **For a detailed technical walkthrough of the HTTP API integration, see [`API_INTEGRATION_GUIDE.md`](file:///c:/Users/JoseMyrsonOBeros/Documents/Python/Mini%20Projects/Order%20Management%20System/backend/API_INTEGRATION_GUIDE.md)**
+The project is designed to practice layered architecture, API validation, ownership checks, and CLI-to-API integration in a realistic e-commerce workflow.
 
 ---
 
-## 🏗️ Architecture & Project Structure
+## Overview
 
-The project follows a clean, modular architecture:
+This repository currently includes:
+
+- Customer registration and account management
+- Merchant registration and product inventory flows
+- Authentication for customer and merchant users
+- Cart operations and checkout logic
+- Order history and ownership validation
+- JSON-backed persistence for local prototype data
+- A terminal-based interface that calls the backend through HTTP
+
+The implementation is intentionally structured as a hands-on backend project rather than a production-grade SaaS system.
+
+---
+
+## Tech Stack
+
+- Python 3.14+
+- FastAPI
+- Pydantic v2
+- Uvicorn
+- HTTPX
+- python-dotenv
+
+---
+
+## Current Architecture
 
 ```text
-backend/
-├── main.py                          # Application entry point (runs API server & CLI menu together)
-├── pyproject.toml                   # Dependency & project configuration
-├── README.md                        # Project documentation
-├── API_INTEGRATION_GUIDE.md         # Detailed API architecture guide
-└── src/
-    └── backend/
-        ├── app.py                   # Main FastAPI app assembly & router registration
-        ├── controller/              # HTTP Request handlers & routing (FastAPI APIRouter)
-        │   ├── CustomerController.py
-        │   └── OrderController.py
-        ├── database/                # Persistent JSON storage files
-        │   ├── customer.json
-        │   └── products.json
-        ├── interface/               # Interactive CLI Client (communicates over HTTP via httpx)
-        │   └── main_interface.py
-        ├── repository/              # Data storage & file access abstractions
-        │   └── repositories.py
-        ├── schemas/                 # Pydantic data validation schemas
-        │   ├── Customer.py
-        │   ├── Order.py
-        │   └── OrderItems.py
-        └── service/                 # Core business logic & caching layer
-            └── services.py
+.
+├── main.py                           # Starts the API server and launches the CLI interface
+├── pyproject.toml                    # Project metadata and dependencies
+├── README.md                        # Project overview and setup instructions
+├── src/
+│   └── backend/
+│       ├── app.py                   # FastAPI app assembly and router registration
+│       ├── dependencies.py          # Shared API base URL, service access, and ownership dependencies
+│       ├── utilities.py             # Shared configuration helper values
+│       ├── controller/
+│       │   ├── AuthenticationController.py
+│       │   ├── CartController.py
+│       │   ├── CustomerController.py
+│       │   ├── MerchantController.py
+│       │   └── OrderController.py
+│       ├── database/
+│       │   ├── cart.json
+│       │   ├── customer.json
+│       │   ├── merchant.json
+│       │   ├── order.json
+│       │   └── product.json
+│       ├── interface/
+│       │   ├── app_interface.py
+│       │   ├── customer_interface.py
+│       │   ├── handle_order_interface.py
+│       │   ├── handle_user.py
+│       │   └── merchant_interface.py
+│       ├── repository/
+│       │   └── repositories.py
+│       ├── schemas/
+│       │   ├── Cart.py
+│       │   ├── Order.py
+│       │   ├── OrderItems.py
+│       │   ├── Product.py
+│       │   └── Users/
+│       │       ├── Customer.py
+│       │       ├── Merchant.py
+│       │       └── User.py
+│       └── service/
+│           ├── authentication_service.py
+│           ├── customer_service.py
+│           ├── merchant_services.py
+│           ├── order_service.py
+│           └── user_service.py
 ```
 
 ---
 
-## 🔁 Data Flow Lifecycle
+## Key Features
 
-```text
-User Terminal Input 
-       │
-       ▼
-[1] main_interface.py  ──(Packs input into Customer schema & converts via to_dict())
-       │
-       ▼  (HTTP POST / GET request over port 8000 via httpx)
-[2] app.py (FastAPI App)
-       │
-       ▼  (Routes request to controller)
-[3] CustomerController.py ──(Validates incoming payload with Pydantic Customer schema)
-       │
-       ▼
-[4] CustomerService & Repository ──(Appends to cache & saves to customer.json file)
-       │
-       ▼  (Returns HTTP 201 Created / 200 OK JSON response)
-[5] main_interface.py  ──(Displays output & session status to user)
-```
+### Customer flow
+- Register as a customer
+- Log in and maintain an active session
+- View merchant stores and product listings
+- Access personal profile details
+- Update only editable customer fields
+- Restrict access by customer ownership
 
----
+### Merchant flow
+- Register as a merchant
+- Log in with merchant credentials
+- Create, edit, and delete products
+- Manage merchant profile information
+- Protect mutations with ownership validation
 
-## 💡 Key Conceptual Learnings
+### Shopping flow
+- Add items to cart
+- Modify or remove cart entries
+- Check out to create an order
+- Review order history for the active customer
 
-### 1. Pydantic `mode='json'` Serialization
-When dumping models containing complex types (like `uuid.UUID`), calling `model.model_dump()` retains `UUID` objects in memory, causing `TypeError: Object of type UUID is not JSON serializable` when saving to files with `json.dump()`.
-Calling `model.model_dump(mode='json')` in `to_dict()` automatically converts non-standard JSON types into primitive JSON strings (`str`).
-
-### 2. Client-Server Serialization & Validation Pipeline
-* **Client (`app_interface.py`)**: `User.py` object $\xrightarrow{\text{to\_dict()}}$ `dict` $\xrightarrow{\text{httpx}}$ JSON Text over HTTP.
-* **Server (`CustomerController.py`)**: JSON Text over HTTP $\xrightarrow{\text{customer: Customer}}$ Validated `User.py` object.
-* **Storage (`user_service.py` / `repositories.py`)**: `User.py` object $\xrightarrow{\text{to\_dict()}}$ `dict` $\xrightarrow{\text{json.dump()}}$ `customer.json`.
-
-### 3. String Type Rationale for Phone Numbers
-Phone numbers are defined as `str` (not `int`) because:
-- Preserves leading zeros (e.g., `"09064495279"`).
-- Phone numbers are textual identifiers, not mathematical values.
-- Supports formatting symbols (`+`, spaces, dashes).
-- Enables string-based validation rules (`len() == 11`, `.startswith("09")`).
+### Ownership and validation patterns
+- Active user IDs are resolved from the current session
+- Route dependencies verify that a customer or merchant can only access their own records
+- Pydantic schemas validate payloads before storage or updates
+- Service logic saves changes to the JSON repository layer
 
 ---
 
-## 🚀 Getting Started
+## Running the Project
 
 ### Prerequisites
 
-- **Python**: `>= 3.14`
-- **Package Manager**: [`uv`](https://github.com/astral-sh/uv) (fast Python package manager)
+- Python 3.14+
+- Optional: uv for dependency management
 
-### Installation
+### Option 1: Standard install
 
-1. Clone the repository and navigate to the `backend` directory:
-   ```bash
-   cd backend
-   ```
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+pip install -e .
+```
 
-2. Install dependencies using `uv`:
-   ```bash
-   uv sync
-   ```
+### Option 2: Using uv
 
----
+```bash
+uv sync
+```
 
-## 💻 How to Run
-
-### Option 1: Run Server & CLI Client Together (Recommended)
-
-Run the main application script:
+### Start the app
 
 ```bash
 python main.py
 ```
 
-This will:
-1. Start the **FastAPI Uvicorn server** in a background thread at `http://127.0.0.1:8000`.
-2. Automatically launch the interactive **CLI Interface** in your terminal.
+This starts:
+- the FastAPI server in the background
+- the interactive terminal interface for the order system
+
+The app currently runs on:
+
+- http://127.0.0.1:8001
 
 ---
 
-### Option 2: Run Server and CLI Separately
+## API Access
 
-1. **Start the API Server**:
-   ```bash
-   python -m uvicorn backend.app:app --host 127.0.0.1 --port 8000 --reload
-   ```
-2. **Run the CLI Client in a second terminal**:
-   ```bash
-   python src/backend/interface/app_interface.py
-   ```
+When the server is running, FastAPI exposes Swagger docs at:
 
----
+- http://127.0.0.1:8001/docs
 
-## 📑 API Documentation & Swagger UI
+The app registers separate routers for:
 
-FastAPI automatically generates interactive OpenAPI documentation when the server is running.
-
-Open your browser to:
-👉 **[http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)**
-
-### Available Customer Endpoints
-
-| HTTP Method | Route | Description |
-| :--- | :--- | :--- |
-| **GET** | `/api/v1/customer/` | Retrieve all customers |
-| **GET** | `/api/v1/customer/{customer_id}` | Retrieve a single customer by ID |
-| **POST** | `/api/v1/customer/` | Create a new customer (validated via Pydantic) |
+- customer routes
+- merchant routes
+- authentication routes
+- cart routes
+- order routes
 
 ---
 
-## 🛠️ Key Technologies Used
+## Notes on Current State
 
-- **[FastAPI](https://fastapi.tiangolo.com/)**: Modern web framework for building APIs.
-- **[Pydantic v2](https://docs.pydantic.dev/)**: Data validation and settings management using Python type hints.
-- **[Uvicorn](https://www.uvicorn.org/)**: Lightning-fast ASGI server implementation.
-- **[HTTPX](https://www.python-httpx.org/)**: Next-generation HTTP client for Python.
-- **[uv](https://astral.sh/uv)**: Extremely fast Python package installer and resolver.
+This codebase is a strong learning project for backend and API design, but it is not yet a production authentication system.
+
+The current implementation uses local session state and JSON repository storage. That makes it easy to understand and debug, and it matches the learning goals of the project, but for real multi-user deployment you would replace this with:
+
+- JWT or session-based identity management
+- database-backed persistence instead of JSON files
+- better password hashing and security checks
+- a proper production deployment setup
+
+---
+
+## Learning Goals
+
+This project is focused on consolidating skills in:
+
+- REST API design with FastAPI
+- Pydantic v2 validation and schema modeling
+- dependency injection and route-level authorization
+- separation of concerns between controller, service, and repository layers
+- CLI-to-API communication using HTTP clients
+- e-commerce workflows for order and inventory management
+
+---
+
+## Summary
+
+The repository is a practical FastAPI order-management backend that demonstrates end-to-end application flow from registration and authentication through cart, order, and merchant operations. It is especially useful for learning architecture, validation, and ownership logic in a realistic domain model.
