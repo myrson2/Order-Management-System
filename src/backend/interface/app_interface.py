@@ -1,15 +1,10 @@
-import os
-from dotenv import load_dotenv
-
 from backend.interface import merchant_interface
 from backend.interface import customer_interface
 from backend.interface.handle_user import UserInterface
 from backend.interface.merchant_interface import MerchantInterface
-from backend.schemas.Users import MerchantResponse
+from backend.schemas.Users import MerchantResponse, CustomerResponse
+from backend.utilities import API_BASE_URL
 
-load_dotenv()
-
-API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8001/api/v1")
 CUSTOMER_URL = f"{API_BASE_URL}/customer"
 MERCHANT_URL = f"{API_BASE_URL}/merchant"
 user_interface = UserInterface(CUSTOMER_URL, MERCHANT_URL)
@@ -80,7 +75,16 @@ def main_interface() -> None:
 
             match choice:
                 case "1": # Login 
-                    current_user = user_interface.user_authentication()
+                    while current_user is None:
+                        current_user = user_interface.user_authentication()
+                        if current_user is not None:
+                            break
+
+                        is_continue = input('Try again? [Y/N]: ').strip().upper()
+                        if is_continue == "Y":
+                            continue
+                        elif is_continue == "N":
+                            break
                 case "2": # Register 
                     user_interface.account_registration()
                 case "3":
@@ -94,7 +98,7 @@ def main_interface() -> None:
 
             if isinstance(current_user, MerchantResponse):
                 merchant_interface.merchant_interface(current_user)
-            else:
+            elif isinstance(current_user, CustomerResponse):
                 customer_interface.customer_interface(current_user)
 
             current_user = None

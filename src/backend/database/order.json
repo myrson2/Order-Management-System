@@ -1,0 +1,18 @@
+[
+    {
+        "id": "5fd7d850-7439-4cee-9260-d51e90777e54",
+        "customer_id": "f1ac8f7a-3d4b-451c-bdb6-87c5bf1c0787",
+        "order_date": "2026-09-25T12:49:40.030102",
+        "order_list": [
+            {
+                "order_item_id": "edccaebc-e66b-4a27-8a88-f6452a24c60c",
+                "total_price": 156.0,
+                "product_id": "PRD-65BBCC8E",
+                "quantity": 13.0,
+                "product_name": "Milk",
+                "unit_price": 12.0
+            }
+        ],
+        "total_amount": 156.0
+    }
+]

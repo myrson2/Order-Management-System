@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from backend.dependencies import get_merchant_service, get_base_url
+from backend.dependencies import get_merchant_service, get_base_url, require_merchant_ownership
 from backend.schemas.Product import ProductCreate, ProductResponse, ProductUpdate
 from backend.schemas.Users import Merchant
+from backend.schemas.Users.Merchant import MerchantResponse, MerchantUpdate
 from backend.service.merchant_services import MerchantService
 
 router = APIRouter(prefix=f"{get_base_url}/merchant", tags=["Merchant"])
@@ -26,33 +27,12 @@ def get_users(
     """
     return service.get_all()
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
-def create_merchant(
-        merchant: Merchant,
-        service: MerchantService = Depends(get_merchant_service)
-):
-    """
-    Description / Purpose:
-        HTTP POST endpoint to register and persist a new merchant account.
-
-    Args / Parameters:
-        merchant (Merchant): Validated Merchant Pydantic schema from request body.
-        service (MerchantService): Injected MerchantService singleton dependency.
-
-    Returns:
-        None.
-
-    Constraints / Notes:
-        Appends serialized record to memory and synchronously writes to merchant.json.
-    """
-    print(merchant.model_dump())
-    service.add(merchant.to_dict())
-
 @router.post("/{merchant_id}/products", status_code=status.HTTP_201_CREATED, response_model=ProductResponse)
 def create_a_product(
         merchant_id: str,
         prd: ProductCreate,
-        service: MerchantService = Depends(get_merchant_service)
+    service: MerchantService = Depends(get_merchant_service),
+    current_merchant: MerchantResponse = Depends(require_merchant_ownership),
 ) -> ProductResponse:
     """
     Description / Purpose:
@@ -67,9 +47,9 @@ def create_a_product(
         ProductResponse: Serialized ProductResponse schema representing the newly created product.
 
     Constraints / Notes:
-        Verifies that path merchant_id matches payload merchant_id before persisting.
+        Requires the active merchant to own the route ID and verifies the path ID matches the payload.
     """
-    if str(prd.merchant_id) != merchant_id:
+    if str(prd.merchant_id) != str(current_merchant.id):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="URL path merchant_id does not match payload merchant_id."
@@ -99,7 +79,8 @@ def get_all_products(
 def delete_a_product(
     merchant_id: str,
     product_id: str,
-    service: MerchantService = Depends(get_merchant_service)
+    service: MerchantService = Depends(get_merchant_service),
+    current_merchant: MerchantResponse = Depends(require_merchant_ownership),
 ):
     """
     Description / Purpose:
@@ -114,9 +95,9 @@ def delete_a_product(
         ProductResponse: Serialized ProductResponse model of the deleted product.
 
     Constraints / Notes:
-        Raises HTTP 404 HTTPException if the product ID does not exist in the inventory.
+        Requires the active merchant to own the route ID; returns 404 if the product is not found.
     """
-    del_product = service.delete_product(product_id, merchant_id)
+    del_product = service.delete_product(product_id, str(current_merchant.id))
     if not del_product:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -158,7 +139,8 @@ def edit_product_endpoint(
     merchant_id: str,
     product_id: str,
     product_update: ProductUpdate,
-    service: MerchantService = Depends(get_merchant_service)
+    service: MerchantService = Depends(get_merchant_service),
+    current_merchant: MerchantResponse = Depends(require_merchant_ownership),
 ) -> ProductResponse:
     """
     Description / Purpose:
@@ -174,9 +156,9 @@ def edit_product_endpoint(
         ProductResponse: The updated ProductResponse schema model.
 
     Constraints / Notes:
-        Raises HTTP 404 HTTPException if the product ID is not found in inventory.
+        Requires the active merchant to own the route ID; returns 404 if the product is not found.
     """
-    updated_product = service.update_product(merchant_id, product_id, product_update)
+    updated_product = service.update_product(str(current_merchant.id), product_id, product_update)
     if not updated_product:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -190,3 +172,15 @@ def get_merchant_products(
         service: MerchantService = Depends(get_merchant_service)
 ) -> list[ProductResponse]:
     return service.get_merchant_product(merchant_id)
+
+@router.patch("/{merchant_id}", status_code=status.HTTP_200_OK)
+def edit_merchant_account(
+    merchant_id: str,
+    payload: MerchantUpdate,
+    service: MerchantService = Depends(get_merchant_service),
+    current_merchant: MerchantResponse = Depends(require_merchant_ownership),
+):
+    update_data = service.update(str(current_merchant.id), payload)
+    if not update_data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Merchant not found")
+    return update_data

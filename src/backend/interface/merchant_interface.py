@@ -1,8 +1,11 @@
 import httpx
 from backend.schemas.Users import MerchantResponse
-from backend.schemas.Product import ProductCreate, ProductResponse, ProductUpdate, Product
+from backend.schemas.Product import ProductCreate, ProductResponse, ProductUpdate
 from pydantic import ValidationError
 from typing import Literal
+
+from backend.schemas.Users.Merchant import MerchantUpdate
+from backend.utilities import API_BASE_URL
 
 
 class MerchantInterface:
@@ -23,8 +26,8 @@ class MerchantInterface:
             Scopes self.url to http://127.0.0.1:8000/api/v1/merchant/{merchant_id}.
         """
         self.current_merchant = current_merchant
-        self.base_url = "http://127.0.0.1:8001/api/v1/merchant"
-        self.url = f"http://127.0.0.1:8001/api/v1/merchant/{current_merchant.id}"
+        self.base_url = f"{API_BASE_URL}/merchant"
+        self.url = f"{self.base_url}/{current_merchant.id}"
 
     def __str__(self) -> str:
         """
@@ -126,7 +129,7 @@ def update_stock_menu() -> None:
     print("3. Back to Merchant Menu")
     print("=" * 40)
 
-def edit_profile_flow(current_merchant: MerchantResponse) -> None:
+def edit_profile_flow(merchant: MerchantInterface) -> None:
     """
     Description / Purpose:
         Interactive CLI flow allowing a merchant to update their profile details.
@@ -140,9 +143,27 @@ def edit_profile_flow(current_merchant: MerchantResponse) -> None:
     Constraints / Notes:
         Feature stub awaiting profile update endpoint wiring.
     """
-    pass
 
-def handle_settings(current_merchant: MerchantResponse) -> bool:
+    print("Space if u dont want to edit.")
+    f_name = input("Edit First Name: ").strip()
+    l_name = input("Edit Last Name: ").strip()
+    change_store_name = input("Edit Store Name: ").strip()
+
+    patch_data = MerchantUpdate(
+        first_name=f_name,
+        last_name=l_name,
+        store_name=change_store_name,
+    )
+
+    response = httpx.patch(f'{merchant.url}', json=patch_data.model_dump(exclude_none=True, mode='json'))
+
+    if response.status_code == 404:
+        print(f"\n[LOG] {response.text}")
+
+    if response.status_code == 200:
+        print(response.json())
+
+def handle_settings(merchant: MerchantInterface) -> bool:
     """
     Description / Purpose:
         Controls the interactive settings loop for the merchant, handling profile edits and logout.
@@ -163,15 +184,15 @@ def handle_settings(current_merchant: MerchantResponse) -> bool:
         match choice:
             case "1":
                 print("\n[Action] Edit User Profile selected.")
-                edit_profile_flow(current_merchant)
+                edit_profile_flow(merchant)
             case "2":
                 try:
-                    response = httpx.post("http://127.0.0.1:8001/api/v1/auth/logout",
-                                          json=current_merchant.model_dump(mode='json'))
-                    print(f"\n[LOGOUT] Logging out {current_merchant.first_name} {current_merchant.last_name}...")
+                    response = httpx.post(f"{API_BASE_URL}/auth/logout",
+                                          json=merchant.current_merchant.model_dump(mode='json'))
+                    print(f"\n[LOGOUT] Logging out {merchant.current_merchant.first_name} {merchant.current_merchant.last_name}...")
 
-                    if response.status_code == 200:
-                        print(f"\n[LOGOUT] Successfully logged out {current_merchant.first_name} {current_merchant.last_name}.")
+                    if response.status_code == 202:
+                        print(f"\n[LOGOUT] Successfully logged out {merchant.current_merchant.first_name} {merchant.current_merchant.last_name}.")
                         return True
                     else:
                         print(f"\n[ERROR] Logout failed with status code {response.status_code}: {response.text}")
@@ -578,7 +599,7 @@ def merchant_interface(current_merchant: MerchantResponse) -> None:
                 delete_product_id = input("Enter Product ID: ").strip()
                 delete_stock_flow(delete_product_id, my_merchant)
             case "5":
-                should_logout = handle_settings(current_merchant)
+                should_logout = handle_settings(my_merchant)
                 if should_logout:
                     break
             case _:

@@ -2,7 +2,11 @@ import httpx
 
 from backend.repository.repositories import ProductRepository
 from backend.schemas.Product import ProductCreate, ProductResponse, ProductUpdate
+from backend.schemas.Users import MerchantResponse, Customer
+from backend.schemas.Users.Customer import CustomerUpdate
+from backend.schemas.Users.Merchant import MerchantUpdate
 from backend.service.user_service import UserService
+from backend.utilities import API_BASE_URL
 
 class MerchantService(UserService):
     """Business logic and caching service for merchant operations."""
@@ -128,7 +132,7 @@ class MerchantService(UserService):
             Verifies both product ID and merchant ownership before mutating product_cache.
         """
 
-        response = httpx.get(f"http://127.0.0.1:8001/api/v1/merchant/{merchant_id}/products/{product_id}")
+        response = httpx.get(f"{API_BASE_URL}/merchant/{merchant_id}/products/{product_id}")
 
         if response.status_code == 404:
             return {
@@ -136,8 +140,6 @@ class MerchantService(UserService):
                 'status': f'{response.status_code}',
             }
         else:
-            deleted_product = ProductResponse(**response.json())
-
             for index, products in enumerate(self.product_cache):
                 if products.get('merchant_id') == str(merchant_id):
                     products = self.product_cache.pop(index)
@@ -199,3 +201,32 @@ class MerchantService(UserService):
                 self.save_product_cache()
                 return ProductResponse(**product)
         return None
+
+    def update(
+        self,
+        user_id: str,
+        user_data: MerchantUpdate | CustomerUpdate,
+    ) -> dict | None:
+        """Update a merchant profile and persist the changed cache record.
+
+        Args:
+            merchant_id: ID of the merchant to update.
+            user_data: Profile update payload; customer payloads are not accepted.
+
+        Returns:
+            Public merchant data as a JSON-ready dictionary, or None if not found
+            or the payload is for a customer.
+        """
+        if not isinstance(user_data, MerchantUpdate):
+            return None
+
+        merchant = self.get_user_by_id(str(user_id))
+        if merchant is None:
+            return None
+
+        data = user_data.model_dump(exclude_none=True, mode="json")
+        if data:
+            merchant.update(data)
+            self.save_cache()
+
+        return MerchantResponse(**merchant).model_dump(mode="json")
