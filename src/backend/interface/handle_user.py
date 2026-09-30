@@ -5,6 +5,7 @@ from backend.schemas.Users.Merchant import MerchantCreate
 from backend.schemas.Users.User import UserLogin, UserResponse
 from pydantic import ValidationError
 from backend.schemas.Users.User import EnumType
+from backend.utilities import API_BASE_URL
 
 class UserInterface:
     """CLI client interface handler for user authentication and account registration."""
@@ -49,7 +50,7 @@ class UserInterface:
             password = input("Enter Password: ").strip()
 
             user_login = UserLogin(email=email, password=password)
-            response = httpx.post("http://127.0.0.1:8001/api/v1/auth/login", json=user_login.model_dump(mode="json"), timeout=5.0)
+            response = httpx.post(f"{API_BASE_URL}/auth/login", json=user_login.model_dump(mode="json"), timeout=5.0)
 
             if response.status_code == 200:
                 user_dict = response.json()
@@ -120,7 +121,7 @@ class UserInterface:
                                 password=pwd,
                                 store_name=merchant_store_name
                             )
-                            response = httpx.post("http://127.0.0.1:8001/api/v1/auth/register/merchant", json=data.to_dict(), timeout=5.0)
+                            response = httpx.post(f"{API_BASE_URL}/auth/register/merchant", json=data.to_dict(), timeout=5.0)
                         case "customer":
                             data = CustomerCreate(
                                 first_name=first_name,
@@ -129,7 +130,7 @@ class UserInterface:
                                 phone=phone_num,
                                 password=pwd
                             )
-                            response = httpx.post(f"http://127.0.0.1:8001/api/v1/auth/register/customer", json=data.to_dict(), timeout=5.0)
+                            response = httpx.post(f"{API_BASE_URL}/auth/register/customer", json=data.to_dict(), timeout=5.0)
                         case _:
                             raise ValueError(f"\n[ERROR]: User type ({u_type}) is not valid.")
 

@@ -5,6 +5,7 @@ from pydantic import ValidationError
 from typing import Literal
 
 from backend.schemas.Users.Merchant import MerchantUpdate
+from backend.utilities import API_BASE_URL
 
 
 class MerchantInterface:
@@ -25,8 +26,8 @@ class MerchantInterface:
             Scopes self.url to http://127.0.0.1:8000/api/v1/merchant/{merchant_id}.
         """
         self.current_merchant = current_merchant
-        self.base_url = "http://127.0.0.1:8001/api/v1/merchant"
-        self.url = f"http://127.0.0.1:8001/api/v1/merchant/{current_merchant.id}"
+        self.base_url = f"{API_BASE_URL}/merchant"
+        self.url = f"{self.base_url}/{current_merchant.id}"
 
     def __str__(self) -> str:
         """
@@ -186,7 +187,7 @@ def handle_settings(merchant: MerchantInterface) -> bool:
                 edit_profile_flow(merchant)
             case "2":
                 try:
-                    response = httpx.post("http://127.0.0.1:8001/api/v1/auth/logout",
+                    response = httpx.post(f"{API_BASE_URL}/auth/logout",
                                           json=merchant.current_merchant.model_dump(mode='json'))
                     print(f"\n[LOGOUT] Logging out {merchant.current_merchant.first_name} {merchant.current_merchant.last_name}...")
 

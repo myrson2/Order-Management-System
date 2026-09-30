@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from backend.dependencies import get_current_merchant, get_merchant_service, get_base_url
+from backend.dependencies import get_merchant_service, get_base_url, require_merchant_ownership
 from backend.schemas.Product import ProductCreate, ProductResponse, ProductUpdate
 from backend.schemas.Users import Merchant
 from backend.schemas.Users.Merchant import MerchantResponse, MerchantUpdate
@@ -31,7 +31,8 @@ def get_users(
 def create_a_product(
         merchant_id: str,
         prd: ProductCreate,
-        service: MerchantService = Depends(get_merchant_service)
+    service: MerchantService = Depends(get_merchant_service),
+    current_merchant: MerchantResponse = Depends(require_merchant_ownership),
 ) -> ProductResponse:
     """
     Description / Purpose:
@@ -46,9 +47,9 @@ def create_a_product(
         ProductResponse: Serialized ProductResponse schema representing the newly created product.
 
     Constraints / Notes:
-        Verifies that path merchant_id matches payload merchant_id before persisting.
+        Requires the active merchant to own the route ID and verifies the path ID matches the payload.
     """
-    if str(prd.merchant_id) != merchant_id:
+    if str(prd.merchant_id) != str(current_merchant.id):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="URL path merchant_id does not match payload merchant_id."
@@ -78,7 +79,8 @@ def get_all_products(
 def delete_a_product(
     merchant_id: str,
     product_id: str,
-    service: MerchantService = Depends(get_merchant_service)
+    service: MerchantService = Depends(get_merchant_service),
+    current_merchant: MerchantResponse = Depends(require_merchant_ownership),
 ):
     """
     Description / Purpose:
@@ -93,9 +95,9 @@ def delete_a_product(
         ProductResponse: Serialized ProductResponse model of the deleted product.
 
     Constraints / Notes:
-        Raises HTTP 404 HTTPException if the product ID does not exist in the inventory.
+        Requires the active merchant to own the route ID; returns 404 if the product is not found.
     """
-    del_product = service.delete_product(product_id, merchant_id)
+    del_product = service.delete_product(product_id, str(current_merchant.id))
     if not del_product:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -137,7 +139,8 @@ def edit_product_endpoint(
     merchant_id: str,
     product_id: str,
     product_update: ProductUpdate,
-    service: MerchantService = Depends(get_merchant_service)
+    service: MerchantService = Depends(get_merchant_service),
+    current_merchant: MerchantResponse = Depends(require_merchant_ownership),
 ) -> ProductResponse:
     """
     Description / Purpose:
@@ -153,9 +156,9 @@ def edit_product_endpoint(
         ProductResponse: The updated ProductResponse schema model.
 
     Constraints / Notes:
-        Raises HTTP 404 HTTPException if the product ID is not found in inventory.
+        Requires the active merchant to own the route ID; returns 404 if the product is not found.
     """
-    updated_product = service.update_product(merchant_id, product_id, product_update)
+    updated_product = service.update_product(str(current_merchant.id), product_id, product_update)
     if not updated_product:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -175,15 +178,9 @@ def edit_merchant_account(
     merchant_id: str,
     payload: MerchantUpdate,
     service: MerchantService = Depends(get_merchant_service),
-    current_merchant: MerchantResponse = Depends(get_current_merchant),
+    current_merchant: MerchantResponse = Depends(require_merchant_ownership),
 ):
-    if str(current_merchant.id) != str(merchant_id):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only update your own merchant account."
-        )
-
-    update_data = service.update(merchant_id, payload)
+    update_data = service.update(str(current_merchant.id), payload)
     if not update_data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Merchant not found")
     return update_data

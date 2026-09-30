@@ -1,5 +1,5 @@
 from backend.schemas.Users.User import EnumType, UserCreate, UserResponse
-from pydantic import Field, BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 class Customer(UserCreate):
     user_type: EnumType =  EnumType.CUSTOMER
@@ -49,4 +49,45 @@ class CustomerResponse(UserResponse):
         return EnumType.CUSTOMER
 
 class CustomerUpdate(BaseModel):
-    pass
+    model_config = ConfigDict(extra="forbid")
+
+    first_name: str | None = Field(default=None, max_length=100)
+    last_name: str | None = Field(default=None, max_length=100)
+    email: EmailStr | None = None
+    phone: str | None = Field(default=None, max_length=11)
+
+    @field_validator("email")
+    @classmethod
+    def validate_update_email(cls, value: EmailStr | None) -> EmailStr | None:
+        """Restrict an updated email address to the customer email domain.
+
+        Args:
+            value: Optional email address supplied in the update.
+
+        Returns:
+            The validated email address, or None when omitted.
+
+        Constraints / Notes:
+            Non-empty values must end with '@gmail.com'.
+        """
+        if value is not None and not str(value).endswith("@gmail.com"):
+            raise ValueError("Email address must end with @gmail.com")
+        return value
+
+    @field_validator("phone")
+    @classmethod
+    def validate_update_phone(cls, value: str | None) -> str | None:
+        """Validate an optional customer phone-number update.
+
+        Args:
+            value: Optional phone number supplied in the update.
+
+        Returns:
+            The validated phone number, or None when omitted.
+
+        Constraints / Notes:
+            Non-empty values must be 11 digits and start with '09'.
+        """
+        if value is not None and (not value.isdigit() or len(value) != 11 or not value.startswith("09")):
+            raise ValueError("Phone number must start with 09 and be 11 digits long")
+        return value

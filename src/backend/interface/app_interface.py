@@ -1,15 +1,10 @@
-import os
-from dotenv import load_dotenv
-
 from backend.interface import merchant_interface
 from backend.interface import customer_interface
 from backend.interface.handle_user import UserInterface
 from backend.interface.merchant_interface import MerchantInterface
 from backend.schemas.Users import MerchantResponse, CustomerResponse
+from backend.utilities import API_BASE_URL
 
-load_dotenv()
-
-API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8001/api/v1")
 CUSTOMER_URL = f"{API_BASE_URL}/customer"
 MERCHANT_URL = f"{API_BASE_URL}/merchant"
 user_interface = UserInterface(CUSTOMER_URL, MERCHANT_URL)

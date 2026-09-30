@@ -56,6 +56,33 @@ class AuthenticationService:
         self.customer_service = customer_service
         self.merchant_service = merchant_service
 
+    @staticmethod
+    def _set_active_status(
+        service: CustomerService | MerchantService,
+        user_id: str,
+        active_status: ActiveStatus,
+    ) -> bool:
+        """Update a cached user record's status and persist the cache.
+
+        Args:
+            service: User service that owns the record.
+            user_id: ID of the user whose status should change.
+            active_status: Status value to persist.
+
+        Returns:
+            True if the user record was found and saved, otherwise False.
+
+        Constraints / Notes:
+            Mutates the cached record and immediately writes the full cache through its repository.
+        """
+        user_data = service.get_user_by_id(user_id)
+        if user_data is None:
+            return False
+
+        user_data["active_status"] = active_status.value
+        service.save_cache()
+        return True
+
     def login(self, user: UserLogin) -> UserResponse | None:
         """
         Description / Purpose:
@@ -77,12 +104,24 @@ class AuthenticationService:
         # Check customer
         customer = _find_user_in_repo(self.customer_service.cache, email, password, Customer)
         if customer is not None:
+            if not self._set_active_status(
+                self.customer_service,
+                str(customer.id),
+                ActiveStatus.ONLINE,
+            ):
+                return None
             customer.online()
             return CustomerResponse(**customer.model_dump())
 
         # Check merchant
         merchant = _find_user_in_repo(self.merchant_service.cache, email, password, Merchant)
         if merchant is not None:
+            if not self._set_active_status(
+                self.merchant_service,
+                str(merchant.id),
+                ActiveStatus.ONLINE,
+            ):
+                return None
             merchant.online()
             return MerchantResponse(**merchant.model_dump())
 

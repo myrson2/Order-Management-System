@@ -3,6 +3,8 @@ import httpx
 from backend.schemas.Cart import CartCreate, CartResponse, CartUpdate
 from backend.schemas.Product import ProductResponse
 from backend.schemas.Users import CustomerResponse, MerchantResponse
+from backend.service.customer_service import CustomerService
+from backend.utilities import API_BASE_URL
 
 class CustomerInterface:
     """CLI client interface handler for Customer operations."""
@@ -13,7 +15,7 @@ class CustomerInterface:
         Sets up an empty in-memory cart.
         """
         self.current_customer = current_customer
-        self.base_url = "http://127.0.0.1:8001/api/v1"
+        self.base_url = API_BASE_URL
         self.customer_url = f"{self.base_url}/customer/{current_customer.id}"
 
     def welcome_message(self) -> str:
@@ -23,35 +25,27 @@ class CustomerInterface:
 def display_stores(curr_customer: CustomerInterface) -> list[dict]:
     """Fetches and displays all registered merchants (stores)."""
     try:
-        response = httpx.get(f'{curr_customer.base_url}/customer/stores', timeout=5.0)
-        if response.status_code == 200:
-            print(response)
-            return response.json()
-        else :
-            print(response)
-            return []
-    except httpx.RequestError as e:
+        return CustomerService.get_stores()
+    except httpx.HTTPError as e:
         print(f"\n[API ERROR] Network failed: {e}")
         return []
 
 def display_store_items(curr_customer: CustomerInterface, store_name: str) -> None:
     """Fetches and displays available products for a specific merchant."""
     try:
-        response = httpx.get(f'{curr_customer.base_url}/customer/stores/{store_name}/all_products', timeout=5.0)
-
-        if response.status_code == 200:
-            products = response.json()
-            print("\n--- AVAILABLE PRODUCTS ---")
-            for p in products:
-                name = p.get('product_name', 'Unknown')
-                price = p.get('unit_price', 0.0)
-                stock = p.get('stock_quantity', 0)
-                id_name = p.get('id')
-                print(f"Product_ID: {id_name} | Product: {name} | Price: ${price:.2f} | Stock: {stock}")
-            print("--------------------------\n")
-        else:
+        products = CustomerService.get_store_products(store_name)
+        if not products:
             print('Doesnt Have Products')
-    except httpx.RequestError as e:
+            return
+        print("\n--- AVAILABLE PRODUCTS ---")
+        for product in products:
+            name = product.get('product_name', 'Unknown')
+            price = product.get('unit_price', 0.0)
+            stock = product.get('stock_quantity', 0)
+            product_id = product.get('id')
+            print(f"Product_ID: {product_id} | Product: {name} | Price: ${price:.2f} | Stock: {stock}")
+        print("--------------------------\n")
+    except httpx.HTTPError as e:
         print(f"\n[API ERROR] Network failed: {e}")
 
 def store_menu() -> None:
@@ -68,11 +62,10 @@ def store_menu() -> None:
     print("=" * 40)
 
 def get_product_response(prd_id: str, customer: CustomerInterface, merchant: MerchantResponse):
-    response = httpx.get(
-        f'{customer.base_url}/cart/customer/{customer.current_customer.id}/product/{prd_id}/product',
-        params={'merchant_id': str(merchant.id)},
+    """Return a validated product from the customer cart API."""
+    return CustomerService.get_product(
+        str(customer.current_customer.id), prd_id, str(merchant.id)
     )
-    return response
 
 def add_to_cart(customer: CustomerInterface, merchant: MerchantResponse) -> CartResponse | None:
     """
@@ -93,21 +86,16 @@ def add_to_cart(customer: CustomerInterface, merchant: MerchantResponse) -> Cart
         #make validation for prd_id if that id is there or not
         prd_id = input("\nEnter Product ID: ").strip()
 
-        response = get_product_response(
+        product = get_product_response(
             prd_id=prd_id,
             customer=customer,
             merchant=merchant
         )
 
-        if response.status_code != 200:
-            raise ValueError(f'Product ID ({prd_id}) is not found.')
-
-        product = ProductResponse(**response.json())
-
         qty = int(input("\nEnter Quantity: "))
 
         if qty > product.stock_quantity:
-            raise ValueError(f'Order items cant exceed to {response.json().get("quantity")}.')
+            raise ValueError(f'Order items cannot exceed available stock ({product.stock_quantity}).')
 
         prd_items = CartCreate(
             product_name=product.product_name,
@@ -117,20 +105,12 @@ def add_to_cart(customer: CustomerInterface, merchant: MerchantResponse) -> Cart
             quantity=qty
         )
 
-        add_to_cart_response = httpx.post(
-            f'{customer.base_url}/cart/customer/{customer.current_customer.id}/add',
-            json=prd_items.model_dump(mode='json')
-        )
-
-        if add_to_cart_response.status_code == 201:
-            print(f'Customer Added An Item Successfully.')
-            return CartResponse(**add_to_cart_response.json())
-        else:
-
-            print(f"[API ERROR {add_to_cart_response.status_code}]: {add_to_cart_response.text}")
+        cart_item = CustomerService.add_cart_item(prd_items)
+        print('Customer Added An Item Successfully.')
+        return cart_item
     except ValueError as e:
         print(e)
-    except httpx.RequestError as e:
+    except httpx.HTTPError as e:
         print(f"\n[API ERROR] Network failed: {e}")
 
 def view_cart(customer: CustomerInterface) -> None:
@@ -147,23 +127,22 @@ def view_cart(customer: CustomerInterface) -> None:
     Constraints / Notes:
         Sends HTTP GET request to /cart/customer/{customer_id}/view and formats output to terminal.
     """
-    response = httpx.get(f'{customer.base_url}/cart/customer/{customer.current_customer.id}/view')
-    if response.status_code == 200:
-        cart_items = response.json()
+    try:
+        cart_items = CustomerService.get_cart(str(customer.current_customer.id))
         if not cart_items:
             print("\n[INFO] Your shopping cart is empty.")
-        else:
-            print("\n--- YOUR CART ---")
-            for item in cart_items:
-                cart_id = item.get('id', 'N/A')
-                prod_name = item.get('product_name', 'Unknown Product')
-                prod_id = item.get('product_id', 'N/A')
-                merchant_id = item.get('merchant_id', 'N/A')
-                quantity = item.get('quantity', 0)
-                print(f"Cart ID: {cart_id} | Product: {prod_name} ({prod_id}) | Store ID: {merchant_id} | Quantity: {quantity}")
-            print("-----------------\n")
-    else:
-        print(f"\n[ERROR {response.status_code}]: {response.text}")
+            return
+        print("\n--- YOUR CART ---")
+        for item in cart_items:
+            cart_id = item.get('id', 'N/A')
+            product_name = item.get('product_name', 'Unknown Product')
+            product_id = item.get('product_id', 'N/A')
+            merchant_id = item.get('merchant_id', 'N/A')
+            quantity = item.get('quantity', 0)
+            print(f"Cart ID: {cart_id} | Product: {product_name} ({product_id}) | Store ID: {merchant_id} | Quantity: {quantity}")
+        print("-----------------\n")
+    except httpx.HTTPError as error:
+        print(f"\n[API ERROR] Could not retrieve cart: {error}")
 
 def edit_cart(customer: CustomerInterface) -> None:
     """
@@ -184,31 +163,15 @@ def edit_cart(customer: CustomerInterface) -> None:
         view_cart(customer)
         cart_id = input("\nEnter Cart Item ID to edit: ").strip()
 
-        check_response = httpx.get(
-            f'{customer.base_url}/cart/customer/{customer.current_customer.id}/{cart_id}/cart'
-        )
-
-        if check_response.status_code == 200:
-            edit_qty = int(input("Enter New Quantity: ").strip())
-            if edit_qty <= 0:
-                print("\n[INPUT ERROR] Quantity must be greater than zero.")
-                return
-
-            update_payload = CartUpdate(quantity=edit_qty)
-            patch_response = httpx.patch(
-                f'{customer.base_url}/cart/customer/{customer.current_customer.id}/item/{cart_id}',
-                json=update_payload.model_dump(exclude_unset=True)
-            )
-
-            if patch_response.status_code == 200:
-                print("\n[SUCCESS] Cart item updated successfully!")
-            else:
-                print(f"\n[ERROR {patch_response.status_code}]: {patch_response.text}")
-        else:
-            print(f"\n[ERROR {check_response.status_code}]: {check_response.text}")
+        customer_id = str(customer.current_customer.id)
+        CustomerService.get_cart_item(customer_id, cart_id)
+        edit_qty = int(input("Enter New Quantity: ").strip())
+        update_payload = CartUpdate(quantity=edit_qty)
+        CustomerService.update_cart_item(customer_id, cart_id, update_payload)
+        print("\n[SUCCESS] Cart item updated successfully!")
     except ValueError:
         print("\n[INPUT ERROR] Please enter a valid number for quantity.")
-    except httpx.RequestError as e:
+    except httpx.HTTPError as e:
         print(f"\n[API ERROR] Network failed: {e}")
 
 def delete_cart_item_cli(customer: CustomerInterface) -> None:
@@ -229,15 +192,9 @@ def delete_cart_item_cli(customer: CustomerInterface) -> None:
         view_cart(customer)
         cart_id = input("\nEnter Cart Item ID to delete: ").strip()
 
-        response = httpx.delete(
-            f"{customer.base_url}/cart/customer/{customer.current_customer.id}/{cart_id}"
-        )
-
-        if response.status_code == 200:
-            print(f"\n[SUCCESS] Cart item ({cart_id}) deleted successfully!")
-        else:
-            print(f"\n[ERROR {response.status_code}]: {response.text}")
-    except httpx.RequestError as e:
+        CustomerService.delete_cart_item(str(customer.current_customer.id), cart_id)
+        print(f"\n[SUCCESS] Cart item ({cart_id}) deleted successfully!")
+    except httpx.HTTPError as e:
         print(f"\n[API ERROR] Network failed: {e}")
 
 def checkout_cli(customer: CustomerInterface) -> None:
@@ -261,27 +218,18 @@ def checkout_cli(customer: CustomerInterface) -> None:
             print("\n[INFO] Checkout cancelled.")
             return
 
-        response = httpx.post(f"{customer.base_url}/order/checkout/{customer.current_customer.id}")
-
-        if response.status_code == 201:
-            order_data = response.json()
-            print("\n" + "=" * 50)
-            print("             ORDER RECEIPT (SUCCESS)            ")
-            print("=" * 50)
-            print(f"Order ID: {order_data.get('id')}")
-            print(f"Order Date: {order_data.get('order_date')}")
-            print("Items Purchased:")
-            for item in order_data.get('order_list', []):
-                print(f"  - {item.get('product_name')} (x{item.get('quantity')}) @ ${item.get('unit_price'):.2f} = ${item.get('total_price'):.2f}")
-            print(f"Total Amount Paid: ${order_data.get('total_amount'):.2f}")
-            print("=" * 50 + "\n")
-        else:
-            try:
-                detail = response.json().get('detail', response.text)
-            except Exception:
-                detail = response.text
-            print(f"\n[CHECKOUT ERROR {response.status_code}]: {detail}")
-    except httpx.RequestError as e:
+        order_data = CustomerService.checkout(str(customer.current_customer.id)).model_dump(mode='json')
+        print("\n" + "=" * 50)
+        print("             ORDER RECEIPT (SUCCESS)            ")
+        print("=" * 50)
+        print(f"Order ID: {order_data.get('id')}")
+        print(f"Order Date: {order_data.get('order_date')}")
+        print("Items Purchased:")
+        for item in order_data.get('order_list', []):
+            print(f"  - {item.get('product_name')} (x{item.get('quantity')}) @ ${item.get('unit_price'):.2f} = ${item.get('total_price'):.2f}")
+        print(f"Total Amount Paid: ${order_data.get('total_amount'):.2f}")
+        print("=" * 50 + "\n")
+    except httpx.HTTPError as e:
         print(f"\n[API ERROR] Network failed: {e}")
 
 def view_order_history_cli(customer: CustomerInterface) -> None:
@@ -299,24 +247,20 @@ def view_order_history_cli(customer: CustomerInterface) -> None:
         Sends HTTP GET request to /order/customer/{customer_id} using httpx.
     """
     try:
-        response = httpx.get(f"{customer.base_url}/order/customer/{customer.current_customer.id}")
-        if response.status_code == 200:
-            history = response.json()
-            if not history:
-                print("\n[INFO] You have no past order receipts.")
-            else:
-                print("\n" + "=" * 50)
-                print("             PAST ORDER HISTORY                 ")
-                print("=" * 50)
-                for order in history:
-                    print(f"\nOrder ID: {order.get('id')} | Date: {order.get('order_date')} | Total: ${order.get('total_amount'):.2f}")
-                    print("  Items:")
-                    for item in order.get('order_list', []):
-                        print(f"    - {item.get('product_name')} x{item.get('quantity')} (${item.get('total_price'):.2f})")
-                print("=" * 50 + "\n")
-        else:
-            print(f"\n[ERROR {response.status_code}]: {response.text}")
-    except httpx.RequestError as e:
+        history = CustomerService.get_order_history(str(customer.current_customer.id))
+        if not history:
+            print("\n[INFO] You have no past order receipts.")
+            return
+        print("\n" + "=" * 50)
+        print("             PAST ORDER HISTORY                 ")
+        print("=" * 50)
+        for order in history:
+            print(f"\nOrder ID: {order.get('id')} | Date: {order.get('order_date')} | Total: ${order.get('total_amount'):.2f}")
+            print("  Items:")
+            for item in order.get('order_list', []):
+                print(f"    - {item.get('product_name')} x{item.get('quantity')} (${item.get('total_price'):.2f})")
+        print("=" * 50 + "\n")
+    except httpx.HTTPError as e:
         print(f"\n[API ERROR] Network failed: {e}")
 
 def handle_store_shopping(customer: CustomerInterface, store_name: str) -> None:
@@ -331,9 +275,8 @@ def handle_store_shopping(customer: CustomerInterface, store_name: str) -> None:
 
     # Get merchant object using store name
     try:
-        merchant = httpx.get(f'{customer.base_url}/customer/stores/{store_name}')
-        merchant_res = MerchantResponse(**merchant.json())
-        if merchant.status_code == 200:
+        merchant_res = CustomerService.get_merchant(store_name)
+        if merchant_res is not None:
             display_store_items(customer, store_name)  # Change Store name to Merchant Object
             while True:
                 store_menu()
@@ -362,7 +305,7 @@ def handle_store_shopping(customer: CustomerInterface, store_name: str) -> None:
                         print("\n[ERROR] Invalid option. Please enter 1-6.")
         else:
             return None
-    except httpx.RequestError as e:
+    except httpx.HTTPError as e:
         print(e)
 
 def customer_menu() -> None:
@@ -391,19 +334,18 @@ def logout(customer: CustomerInterface) -> bool:
         Sends customer profile payload to /auth/logout endpoint.
     """
     try:
-        response = httpx.post("http://127.0.0.1:8001/api/v1/auth/logout",
-                              json=customer.current_customer.model_dump(mode='json'))
+        is_logged_out = CustomerService.logout_customer(customer.current_customer)
         print(f"\n[LOGOUT] Logging out {customer.current_customer.first_name} {customer.current_customer.last_name}...")
 
-        if response.status_code == 202:
+        if is_logged_out:
             print(
                 f"\n[LOGOUT] Successfully logged out {customer.current_customer.first_name} {customer.current_customer.last_name}.")
             return True
         else:
-            print(f"\n[ERROR] Logout failed with status code {response.status_code}: {response.text}")
+            print("\n[ERROR] Logout failed.")
             return False
 
-    except httpx.RequestError as e:
+    except httpx.HTTPError as e:
         print(f"\n[API ERROR] Could not connect to server for logout: {e}")
         return False
 

@@ -6,6 +6,7 @@ from backend.schemas.Users import MerchantResponse, Customer
 from backend.schemas.Users.Customer import CustomerUpdate
 from backend.schemas.Users.Merchant import MerchantUpdate
 from backend.service.user_service import UserService
+from backend.utilities import API_BASE_URL
 
 class MerchantService(UserService):
     """Business logic and caching service for merchant operations."""
@@ -131,7 +132,7 @@ class MerchantService(UserService):
             Verifies both product ID and merchant ownership before mutating product_cache.
         """
 
-        response = httpx.get(f"http://127.0.0.1:8001/api/v1/merchant/{merchant_id}/products/{product_id}")
+        response = httpx.get(f"{API_BASE_URL}/merchant/{merchant_id}/products/{product_id}")
 
         if response.status_code == 404:
             return {
@@ -203,7 +204,7 @@ class MerchantService(UserService):
 
     def update(
         self,
-        merchant_id: str,
+        user_id: str,
         user_data: MerchantUpdate | CustomerUpdate,
     ) -> dict | None:
         """Update a merchant profile and persist the changed cache record.
@@ -219,7 +220,7 @@ class MerchantService(UserService):
         if not isinstance(user_data, MerchantUpdate):
             return None
 
-        merchant = self.get_user_by_id(str(merchant_id))
+        merchant = self.get_user_by_id(str(user_id))
         if merchant is None:
             return None
 

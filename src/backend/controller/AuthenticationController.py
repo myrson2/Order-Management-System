@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from backend.dependencies import (
     AUTH_SERVICE_URL,
+    clear_current_customer_id,
     clear_current_merchant_id,
     get_auth_service,
     get_customer_service,
     get_merchant_service,
+    set_current_customer_id,
     set_current_merchant_id,
 )
 from backend.schemas.Users.Customer import CustomerCreate, CustomerResponse
@@ -78,7 +80,11 @@ def get_login_in(user: UserLogin, service: AuthenticationService = Depends(get_a
             detail="User not found.")
 
     if getattr(account, "user_type", None) == EnumType.MERCHANT:
+        clear_current_customer_id()
         set_current_merchant_id(str(account.id))
+    else:
+        clear_current_merchant_id()
+        set_current_customer_id(str(account.id))
 
     return account
 
@@ -104,5 +110,7 @@ def get_logout(user: UserResponse, service: AuthenticationService = Depends(get_
 
     if getattr(user, "user_type", None) == EnumType.MERCHANT:
         clear_current_merchant_id()
+    else:
+        clear_current_customer_id()
 
     return {"message": "Successfully logged out"}

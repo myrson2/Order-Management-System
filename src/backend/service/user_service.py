@@ -112,7 +112,7 @@ class UserService(ABC):
         self.save_cache()
 
     @abstractmethod
-    def update(self, merchant_id: str, user_data: MerchantUpdate | CustomerUpdate) -> dict | None:
+    def update(self, user_id: str, user_data: MerchantUpdate | CustomerUpdate) -> dict | None:
         pass
 
 
